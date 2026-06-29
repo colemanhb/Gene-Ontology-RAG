@@ -1,37 +1,38 @@
 import requests
-import yaml
-from langchain_core.documents import Document
-from langchain_openai import OpenAIEmbeddings
-from langchain_qdrant import QdrantVectorStore
+from llama_index.core import Document
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.vector_stores.qdrant import QdrantVectorStore
+from llama_index.core import VectorStoreIndex
+from llama_index.core import StorageContext
 from qdrant_client import QdrantClient
 
-GITHUB_API = (
-    "https://api.github.com/repos/"
-    "OBOFoundry/OBOFoundry.github.io/contents/ontology"
-)
+API_KEY = "622683ad-2781-4efd-96b6-af9c82bf31d6"
+
+HEADERS = {
+    "Authorization": f"apikey token={API_KEY}"
+}
+
+ONTOLOGY_URL = "https://data.bioontology.org/ontologies"
 
 def load_all_metadata():
-    files = requests.get(GITHUB_API).json()
-
     ontologies = []
 
-    for file in files:
-        if not file["name"].endswith(".md"):
-            continue
+    response = requests.get(ONTOLOGY_URL, headers=HEADERS)
+    response.raise_for_status()
 
-        raw_url = file["download_url"]
-
-        text = requests.get(raw_url).text
-
-        try:
-            _, yaml_text, body = text.split("---", maxsplit=2)
-        except ValueError:
-            continue
-
-        metadata = yaml.safe_load(yaml_text)
-        metadata["body"] = body.strip()
-
-        ontologies.append(metadata)
+    for ontology in response.json():
+        ontologies.append({
+            "id": ontology.get("acronym"),
+            "title": ontology.get("name"),
+            "abstract": ontology.get("description"),
+            "homepage": ontology.get("homepage"),
+            "version": ontology.get("version"),
+            "status": ontology.get("status"),
+            "viewOf": ontology.get("viewOf"),
+            "categories": [
+                c["acronym"] for c in ontology.get("hasDomain", [])
+            ],
+        })
 
     return ontologies
 
@@ -41,26 +42,33 @@ def create_documents(ontologies):
 
     for ontology in ontologies:
         content = f"""
-Title: {ontology.get('title', '')}
+        Title: {ontology.get('title', '')}
 
-Description:
-{ontology.get('description', '')}
+        Acronym:
+        {ontology.get("id")}
 
-Details:
-{ontology.get('body', '')}
-"""
+        Abstract:
+        {ontology.get('abstract', '')}
+
+        Categories:
+        {", ".join(ontology.get("categories", []))}
+
+        Homepage:
+        {ontology.get('homepage', '')}
+
+        Version:
+        {ontology.get('version', '')}
+        """
 
         docs.append(
             Document(
-                page_content=content.strip(),
+                text=content.strip(),
                 metadata={
-                    "id": ontology.get("id"),
-                    "title": ontology.get("title"),
-                    "prefix": ontology.get("preferredPrefix"),
-                    "domain": ontology.get("domain"),
-                    "repository": ontology.get("repository"),
-                    "homepage": ontology.get("homepage"),
-                    "activity_status": ontology.get("activity_status"),
+                    "id": ontology["id"],
+                    "title": ontology["title"],
+                    "homepage": ontology["homepage"],
+                    "version": ontology["version"],
+                    "categories": ontology["categories"],
                 },
             )
         )
@@ -68,20 +76,23 @@ Details:
     return docs
 
 def build_qdrant_index(docs):
-    embeddings = OpenAIEmbeddings(
-        model="text-embedding-3-small"
-    )
-
     client = QdrantClient(":memory:")
 
-    vectorstore = QdrantVectorStore.from_documents(
-        documents=docs,
-        embedding=embeddings,
+    vector_store = QdrantVectorStore(
         client=client,
         collection_name="obo_ontologies",
     )
 
-    return vectorstore
+    storage_context = StorageContext.from_defaults(
+        vector_store=vector_store
+    )
+
+    index = VectorStoreIndex.from_documents(
+        docs,
+        storage_context=storage_context,
+    )
+
+    return index
 
 def format_docs(docs):
-    return "\n\n".join(doc.page_content for doc in docs)
+    return "\n\n".join(doc.text for doc in docs)
