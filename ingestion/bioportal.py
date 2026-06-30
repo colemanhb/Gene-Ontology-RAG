@@ -17,6 +17,13 @@ def _safe_get(url):
         return r.json()
     except Exception:
         return {}
+    
+def is_obo_ontology(o):
+    groups = _safe_get(o["links"]["groups"] or [])
+    return any(
+        group.get("acronym") == "OBO_Foundry"
+        for group in groups
+    )
 
 
 def load_all_metadata(fetch_submissions: bool = True):
@@ -34,6 +41,8 @@ def load_all_metadata(fetch_submissions: bool = True):
     ontologies = []
 
     for o in response.json():
+        if not is_obo_ontology(o):
+            continue
         latest = {}
 
         if fetch_submissions and o.get("links", {}).get("latest_submission"):
@@ -48,9 +57,9 @@ def load_all_metadata(fetch_submissions: bool = True):
             # descriptions (BioPortal is inconsistent here → merge both sources)
             "description": "\n\n".join(
                 part for part in [
-                    o.get("description"),
-                    o.get("summary"),
-                    o.get("notes"),
+                    latest.get("description"),
+                    latest.get("summary"),
+                    latest.get("notes"),
                 ]
                 if part
             ),
@@ -63,10 +72,6 @@ def load_all_metadata(fetch_submissions: bool = True):
             "contact_email": latest.get("contactEmail"),
 
             # structure / semantics
-            "categories": [
-                c.get("acronym", "")
-                for c in o.get("categories", [])
-            ],
             "keywords": o.get("keywords", []),
             "has_views": o.get("viewOf"),
             "group": o.get("group"),
@@ -118,9 +123,6 @@ NOTES:
 
 KEYWORDS:
 {join(o.get("keywords", []))}
-
-CATEGORIES:
-{join(o.get("categories", []))}
 
 GROUP / DOMAIN:
 {o.get("group", "")}

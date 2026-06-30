@@ -45,7 +45,6 @@ def main():
             title=ontology["name"],
             abstract=ontology["description"],
             full_text=blob,
-            category=", ".join(ontology["categories"]),
         )
 
         embedding = embedder.embed(blob)

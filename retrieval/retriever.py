@@ -29,25 +29,40 @@ class OntologyRetriever:
         conn = get_conn()
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
+        #results = []
+
+        #for score, ontology_id in zip(scores, ids):
+        cur.execute(
+            """
+            SELECT *
+            FROM ontologies
+            WHERE id = ANY(%s)
+            """,
+            (list(map(int, ids)),)
+        )
+
+        rows = cur.fetchall()
+
+        row_map = {
+            row["id"]: row
+            for row in rows
+        }
+        
         results = []
 
         for score, ontology_id in zip(scores, ids):
-            cur.execute(
-                """
-                SELECT *
-                FROM ontologies
-                WHERE id = ANY(%s)
-                """,
-                (list(map(int, ids)),)
-            )
-
-            row = cur.fetchall()
-
+            row = row_map.get(ontology_id)
             if row is not None:
                 results.append({
                     "score": float(score),
                     "ontology": row,
                 })
+
+        #if row is not None:
+        #    results.append({
+        #        "score": float(score),
+        #        "ontology": row,
+        #    })
 
         cur.close()
         conn.close()
