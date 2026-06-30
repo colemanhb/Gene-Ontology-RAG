@@ -85,3 +85,57 @@ Return best matching ontologies
 | `retrieval/` | Combines embeddings, TurboVec, and PostgreSQL to answer user queries. |
 | `scripts/` | Testing and maintenance utilities (`test_db.py`, `test_embeddings.py`, `test_retrieval.py`, `reset_db.py`). |
 | `data/` | Stores generated TurboVec index files. |
+
+### Running as a standalone RAG
+
+#### Start PostgreSQL
+
+```
+psql obo
+```
+
+#### Start the embedding server
+
+Launch the llama.cpp embedding server
+
+For example:
+```
+./llama-server \ 
+    -m models/your_embedding_model.gguf \
+    --embedding \
+    --port 8081
+```
+
+One server you can use:
+```
+llama-server \ 
+    -hf unsloth/bge-small-en-v1.5-GGUF:F16 \
+    --embedding \
+    --port 8081
+```
+
+#### Ingest ontologies
+
+```
+python -m ingestion.ingest_ontologies
+```
+This step does several things:
+* Initialize the PostgreSQL database
+* Download ontology metadata (using the BioPortal API)
+* Create searchable text blobs
+* Insert ontology metadata into PostgreSQL
+* Generate embeddings
+* Build the TurboVec index
+* Save the index to disk
+
+#### Run the retriever
+
+```
+python -m scripts.test_retrieval
+```
+
+After you run this, you will be prompted for a question. 
+You can ask for any biomedical ontology that might be in the OBO foundry database.
+You can end the session by typing quit or exit. 
+
+### Runing as an mcp
