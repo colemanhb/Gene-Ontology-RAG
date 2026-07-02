@@ -22,7 +22,6 @@ def main():
             print(f"Similarity: {result['score']:.3f}")
             print(f"Acronym:   {ontology['acronym']}")
             print(f"Title:     {ontology['title']}")
-            print(f"Category:  {ontology['category']}")
             print(f"Abstract:  {ontology['abstract']}")
             print()
 
