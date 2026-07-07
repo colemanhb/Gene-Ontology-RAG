@@ -10,7 +10,7 @@ retriever = OntologyRetriever()
 @mcp.tool()
 def search_ontology(question: str):
     """Search BioPortal ontologies."""
-    result =  retriever.retrieve(question)
+    results =  retriever.retrieve(question)
     return [
         {
             "score": result["score"],
@@ -18,16 +18,7 @@ def search_ontology(question: str):
             "title": result["ontology"]["title"],
             "abstract": result["ontology"]["abstract"],
         }
-        for r in result
+        for result in results
     ]
 
-def main():
-    mcp.run(
-        transport="http",
-        host="127.0.0.1",
-        port=8000,
-        path="/mcp",
-    )
-
-if __name__ == "__main__":
-    main()
+app = mcp.streamable_http_app()

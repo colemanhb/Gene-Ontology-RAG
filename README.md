@@ -139,3 +139,5 @@ You can ask for any biomedical ontology that might be in the OBO foundry databas
 You can end the session by typing quit or exit. 
 
 ### Runing as an mcp
+
+I couldn't get this to work but my attempt is in the server folder. 
